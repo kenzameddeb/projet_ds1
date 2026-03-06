@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../models/challenge.php';
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../models/Challenge.php';
+require_once __DIR__ . '/../../config/database.php';
 
 class ChallengeController {
     private $challengeModel;
@@ -9,74 +9,98 @@ class ChallengeController {
         $this->challengeModel = new Challenge($pdo);
     }
 
-    //Lister tous les défis
-    public function index() {
-        $defis = $this->challengeModel->findAll();
-        require __DIR__ . '/../views/challenges/index.php';
-    }
-
-    //Afficher un seul défi
-    public function show($id) {
-        $defi = $this->challengeModel->findById($id);
-        if (!$defi) {
-            die("Défi introuvable.");
-        }
-        require __DIR__ . '/../views/challenges/show.php';
-    }
-
-    //Afficher le formulaire + traiter l'ajout
+    // Créer un défi
     public function create() {
-        $erreur = '';
-
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $titre       = trim($_POST['titre'] ?? '');
+            $title       = trim($_POST['title'] ?? '');
             $description = trim($_POST['description'] ?? '');
-            $categorie   = $_POST['categorie'] ?? '';
-            $date_limite = $_POST['date_limite'] ?? '';
+            $category    = $_POST['category'] ?? '';
+            $deadline    = $_POST['deadline'] ?? '';
+            $user_id     = $_SESSION['user']['id'];
 
-            if ($titre && $description && $categorie && $date_limite) {
-                $this->challengeModel->create($titre, $description, $categorie, $date_limite);
-                header("Location: index.php?page=challenges");
+            if (empty($title) || empty($description) || empty($category) || empty($deadline)) {
+                $_SESSION['error'] = "Tous les champs sont obligatoires.";
+                header("Location: /projet_ds1/index.php?page=challenge_create");
+                exit;
+            }
+
+            // Gestion image
+            $image = null;
+            if (!empty($_FILES['image']['name'])) {
+                $upload_dir = __DIR__ . '/../../public/uploads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                $ext      = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+                $filename = uniqid('challenge_') . '.' . $ext;
+                move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename);
+                $image = $filename;
+            }
+
+            if ($this->challengeModel->create($user_id, $title, $description, $category, $deadline, $image)) {
+                $_SESSION['success'] = "Défi créé avec succès !";
+                header("Location: /projet_ds1/index.php?page=challenges");
                 exit;
             } else {
-                $erreur = "Tous les champs sont obligatoires.";
+                $_SESSION['error'] = "Erreur lors de la création du défi.";
+                header("Location: /projet_ds1/index.php?page=challenge_create");
+                exit;
             }
         }
-
-        require __DIR__ . '/../views/challenges/create.php';
     }
 
-    //Afficher le formulaire + traiter la modification
+    // Modifier un défi
     public function edit($id) {
-        $defi   = $this->challengeModel->findById($id);
-        $erreur = '';
+        $defi = $this->challengeModel->findById($id);
 
         if (!$defi) {
-            die("Défi introuvable.");
+            $_SESSION['error'] = "Défi introuvable.";
+            header("Location: /projet_ds1/index.php?page=challenges");
+            exit;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $titre       = trim($_POST['titre'] ?? '');
+            $title       = trim($_POST['title'] ?? '');
             $description = trim($_POST['description'] ?? '');
-            $categorie   = $_POST['categorie'] ?? '';
-            $date_limite = $_POST['date_limite'] ?? '';
+            $category    = $_POST['category'] ?? '';
+            $deadline    = $_POST['deadline'] ?? '';
 
-            if ($titre && $description && $categorie && $date_limite) {
-                $this->challengeModel->edit($id, $titre, $description, $categorie, $date_limite);
-                header("Location: index.php?page=challenges");
+            if (empty($title) || empty($description) || empty($category) || empty($deadline)) {
+                $_SESSION['error'] = "Tous les champs sont obligatoires.";
+                header("Location: /projet_ds1/index.php?page=challenge_edit&id=" . $id);
+                exit;
+            }
+
+            // Gestion image
+            $image = $defi['image'];
+            if (!empty($_FILES['image']['name'])) {
+                $upload_dir = __DIR__ . '/../../public/uploads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                $ext      = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+                $filename = uniqid('challenge_') . '.' . $ext;
+                move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename);
+                $image = $filename;
+            }
+
+            if ($this->challengeModel->edit($id, $title, $description, $category, $deadline, $image)) {
+                $_SESSION['success'] = "Défi modifié avec succès !";
+                header("Location: /projet_ds1/index.php?page=challenge_show&id=" . $id);
                 exit;
             } else {
-                $erreur = "Tous les champs sont obligatoires.";
+                $_SESSION['error'] = "Erreur lors de la modification.";
+                header("Location: /projet_ds1/index.php?page=challenge_edit&id=" . $id);
+                exit;
             }
         }
-
-        require __DIR__ . '/../views/challenges/edit.php';
     }
 
-    //Supprimer un défi
+    // Supprimer un défi
     public function delete($id) {
         $this->challengeModel->delete($id);
-        header("Location: index.php?page=challenges");
+        $_SESSION['success'] = "Défi supprimé avec succès !";
+        header("Location: /projet_ds1/index.php?page=challenges");
         exit;
     }
 }

@@ -1,12 +1,10 @@
 <?php
-
 class Submission {
     private $pdo;
     
     public function __construct($pdo) {
         $this->pdo = $pdo;
     }
-
     //Créer une nouvelle soumission
     public function create($challenge_id, $user_id, $contenu, $date_soumission) {
         $stmt = $this->pdo->prepare(
